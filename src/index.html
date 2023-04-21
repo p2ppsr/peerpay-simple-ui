@@ -3,6 +3,7 @@
     <head>
         <!--Import the required tokenator script and a custom stylesheet-->
         <script src="PaymentTokenator.bundle.js"></script>
+        <script src="./BabbageSDK.js"></script>
         <link href="style.css" type="text/css" rel="stylesheet" /> 
     </head>
     <body class="bg-blur">
@@ -22,6 +23,20 @@
             <h1 class="header">PeerServ Payments Demo</h1>
             <h4 class="subheading">Peer-to-Peer Payments</h4>
             <p>Enter your recipient's identityKey, the amount, and send your payment!</p>
+
+            <button class="tokenButton" onclick="{getIdentityKey()}">View Your Identity Key</button>
+
+            <!--Get the user's identity key using the SDK-->
+            <script>
+                const getIdentityKey = (async () => {
+                    try {
+                        let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true }) 
+                        alert(identityKey)
+                    } catch (error) {
+                        alert(error)
+                    }
+                })
+            </script>
 
             <!--Example input form-->
             <form>
