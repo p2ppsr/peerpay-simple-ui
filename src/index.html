@@ -25,6 +25,7 @@
             <h4 class="subheading">Peer-to-Peer Payments</h4>
             <p>Enter your recipient's identityKey, the amount, and send your payment!</p>
 
+            <h4 id="identityKey"></h4>
             <button class="tokenButton" onclick="{getIdentityKey()}">View Your Identity Key</button>
 
             <!--Get the user's identity key using the SDK-->
@@ -32,7 +33,7 @@
                 const getIdentityKey = (async () => {
                     try {
                         let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true }) 
-                        showAlert(identityKey)
+                        document.getElementById('identityKey').innerText = identityKey
                     } catch (error) {
                         showAlert("MetaNet Client Required!")
                     }
