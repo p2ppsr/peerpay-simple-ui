@@ -1,5 +1,12 @@
 /* PeerServ Payments UI Example CSS Styling */
 
+.headerImage {
+    padding: 30px;
+    max-width: 513px;
+    height: auto;
+    width: 70vw;
+}
+
 /* Example Table Styling */
 table {
     background-color: rgba(255, 255, 255, 0.168);
@@ -39,7 +46,7 @@ td:nth-last-child(1) {
 /* Style the background */
 .bg-blur {
     overflow-x: hidden;
-    background-color: transparent;
+    background-color: rgb(16, 18, 39);
 }
 .bg-blur::before {
     content: '';

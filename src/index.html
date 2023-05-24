@@ -13,14 +13,15 @@
         </script>
 
         <!--Toast Notification-->
-        <div class="toast" id="toast">
+        <div class="toast" id="toast" onclick="{
+            document.getElementById('toast').classList.remove('visible')}">
             <div class="toast-body">
             </div>
         </div>
 
         <div class="mainContent">
             <!--Setup the page headers-->
-            <h1 class="header">PeerServ Payments Demo</h1>
+            <img class="headerImage" src="Images/PeerPay.png"/>
             <h4 class="subheading">Peer-to-Peer Payments</h4>
             <p>Enter your recipient's identityKey, the amount, and send your payment!</p>
 
@@ -31,9 +32,9 @@
                 const getIdentityKey = (async () => {
                     try {
                         let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true }) 
-                        alert(identityKey)
+                        showAlert(identityKey)
                     } catch (error) {
-                        alert(error)
+                        showAlert("MetaNet Client Required!")
                     }
                 })
             </script>
@@ -55,7 +56,7 @@
                         let recipient = document.getElementById('recipient').value
                         let amount = Number(document.getElementById('amount').value)
                         if (!recipient || !amount) {
-                            alert('Please fill out the required fields!')
+                            showAlert('Please fill out the required fields!')
                             document.getElementById("loader").style.display = "none"
                             return
                         }
@@ -64,12 +65,10 @@
                             amount
                         })
                         document.getElementById("loader").style.display = "none"
-                        const toast = document.getElementById('toast')
-                        toast.querySelector('.toast-body').innerHTML = "Payment Sent! 🎉"
-                        toast.classList.add('visible')
+                        showAlert("Payment Sent! 🎉")
                     } catch (error) {
                         document.getElementById("loader").style.display = "none"
-                        alert(error)
+                        showAlert(error)
                     }
                     setTimeout(() => { location.reload() }, 1500)
                 } )
@@ -98,12 +97,26 @@
                 list.style.display = "none"
 
                 let newMessages = []
+
+                // Show a custom toast alert
+                const showAlert = (message, duration = 8000) => {
+                    const toast = document.getElementById('toast')
+                    toast.querySelector('.toast-body').innerHTML = message
+                    toast.classList.add('visible')
+                    setTimeout(() => { toast.classList.remove('visible') }, duration)
+                }
+
                 const checkforNewMessages = async () => {
                     document.getElementById("loader").style.display = "block"
-                    let payments = await window.PaymentTokenator.listIncomingPayments()
+                    let payments = undefined
+                    try {
+                        payments = await window.PaymentTokenator.listIncomingPayments()
+                    } catch (error) {
+                        showAlert("MetaNet Client Required!")
+                    }
                     document.getElementById("loader").style.display = "none"
                     console.log(payments)
-                    // Example continous checking for new messages (could be improved!)
+                    // Example continuous checking for new messages (could be improved!)
                     // while(!newMessages || newMessages.length === 0) {
                     //     await new Promise(resolve => setTimeout(resolve, 4000))
                     //     newMessages = await window.PaymentTokenator.listMessages({ messageBoxType: ['payment_inbox'], acknowledged: false})
@@ -183,7 +196,7 @@
                                     toast.classList.add('visible')
                                 } catch (error) {
                                     document.getElementById("loader").style.display = "none"
-                                    alert(error)
+                                    showAlert(error)
                                 }
                                 // Refresh the page after 2 sec
                                 setTimeout(() => { location.reload() }, 1500)
@@ -193,7 +206,6 @@
                             row.appendChild(actionCell)
                             tblBody.appendChild(row)
                             
-                            setTimeout(() => { toast.classList.remove('visible') }, 1500)
                         })
                     }
                 }
@@ -209,12 +221,10 @@
                             messageIds: window.incomingPayments.map(x => x.messageId)
                         })
                         document.getElementById("loader").style.display = "none"
-                        const toast = document.getElementById('toast')
-                        toast.querySelector('.toast-body').innerHTML = "Payments recieved!"
-                        toast.classList.add('visible')
+                        showAlert("Payments Received!")
                     } catch (error) {
                         document.getElementById("loader").style.display = "none"
-                        alert(error)
+                        showAlert(error)
                     }
                     // Refresh the page after 2sec
                     setTimeout(() => { location.reload() }, 1500)
