@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <!--Import the required tokenator script and a custom stylesheet-->
-        <script src="PaymentTokenator.bundle.js"></script>
-        <script src="./BabbageSDK.js"></script>
+        <!--Import custom stylesheet-->
         <link href="style.css" type="text/css" rel="stylesheet" /> 
     </head>
     <body class="bg-blur">
+        <!--Must import Babbage tools here since they need to manipulate the DOM for popup window-->
+        <script src="./BabbageSDK.js"></script>
+        <script src="PaymentTokenator.bundle.js"></script>
         <script>
             // Instantiate a new instance of Tokenator
-            window.PaymentTokenator = new window.PaymentTokenator()
+            window.PaymentTokenator = new window.PaymentTokenator({
+                peerServHost: 'https://peerserv.babbage.systems'
+            })
         </script>
 
         <!--Toast Notification-->
@@ -35,7 +38,6 @@
                         let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true }) 
                         document.getElementById('identityKey').innerText = identityKey
                     } catch (error) {
-                        showAlert("MetaNet Client Required!")
                     }
                 })
             </script>
@@ -61,17 +63,17 @@
                             document.getElementById("loader").style.display = "none"
                             return
                         }
+
                         const result = await window.PaymentTokenator.sendPayment({ 
                             recipient,
                             amount
                         })
                         document.getElementById("loader").style.display = "none"
                         showAlert("Payment Sent! 🎉")
+                        setTimeout(() => { location.reload() }, 1500)
                     } catch (error) {
                         document.getElementById("loader").style.display = "none"
-                        showAlert(error)
                     }
-                    setTimeout(() => { location.reload() }, 1500)
                 } )
             </script>
 
@@ -113,10 +115,11 @@
                     try {
                         payments = await window.PaymentTokenator.listIncomingPayments()
                     } catch (error) {
-                        showAlert("MetaNet Client Required!")
+                        console.log(error)
                     }
                     document.getElementById("loader").style.display = "none"
                     console.log(payments)
+
                     // Example continuous checking for new messages (could be improved!)
                     // while(!newMessages || newMessages.length === 0) {
                     //     await new Promise(resolve => setTimeout(resolve, 4000))
@@ -130,9 +133,7 @@
                         document.getElementById('messageBoxStatus').innerText = 'Incoming Payments'
                         list.style.display = "block"
 
-                        const toast = document.getElementById('toast')
-                        toast.querySelector('.toast-body').innerHTML = "New Payments!"
-                        toast.classList.add('visible')
+                        showAlert("New Payments")
 
                         // Allow multi-read
                         if (payments.length > 1) {
@@ -206,7 +207,6 @@
                             actionCell.appendChild(acceptBtn)
                             row.appendChild(actionCell)
                             tblBody.appendChild(row)
-                            
                         })
                     }
                 }
