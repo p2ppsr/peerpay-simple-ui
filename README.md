@@ -1,2 +1,2 @@
-# payments-ui
- P2P Payments
+# PeerPay
+ Simple P2P Payments on the MetaNet
