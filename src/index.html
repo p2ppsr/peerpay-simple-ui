@@ -1,100 +1,110 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <!--Import custom stylesheet-->
-        <link href="style.css" type="text/css" rel="stylesheet" /> 
+        <!-- Import custom stylesheet -->
+        <link href="style.css" type="text/css" rel="stylesheet" />
     </head>
     <body class="bg-blur">
-        <!--Must import Babbage tools here since they need to manipulate the DOM for popup window-->
+        <!-- Import Babbage tools -->
         <script src="./BabbageSDK.js"></script>
-        <script src="PaymentTokenator.bundle.js"></script>
         <script src="signia.bundle.js"></script>
-        <script>
-            // Instantiate a new instance of Tokenator
-            window.PaymentTokenator = new window.PaymentTokenator({
-                peerServHost: 'https://peerserv.babbage.systems'
-            })
+        <script src="/peerppay-client/dist/PeerPayClient.bundle.js"></script>
 
-            window.Signia = new window.Signia.Signia(undefined, 'https://staging-signicert.babbage.systems')
-            window.Signia.config.confederacyHost = 'https://staging-confederacy.babbage.systems'
+        <script>
+            async function initializePeerPay() {
+                try {
+                    const walletClient = new window.BabbageSDK.WalletClient();
+                    window.PeerPayClient = new window.PeerPayClient({
+                        messageBoxHost: 'https://messagebox.babbage.systems',
+                        walletClient
+                    });
+
+                    console.log("PeerPayClient Initialized:", window.PeerPayClient);
+
+                    // Ensure it's fully initialized before calling checkforNewMessages
+                    setTimeout(() => {
+                        if (window.PeerPayClient) {
+                            checkforNewMessages();
+                        } else {
+                            console.error("PeerPayClient is still undefined after delay!");
+                        }
+                    }, 2000); // 2-second delay to ensure initialization
+
+                } catch (error) {
+                    console.error("Failed to initialize PeerPayClient:", error);
+                }
+            }
+
+            initializePeerPay();
         </script>
 
-        <!--Toast Notification-->
+        <!-- Toast Notification -->
         <div class="toast" id="toast" onclick="{
             document.getElementById('toast').classList.remove('visible')}">
-            <div class="toast-body">
-            </div>
+            <div class="toast-body"></div>
         </div>
 
         <div class="mainContent">
-            <!--Setup the page headers-->
+            <!-- Setup the page headers -->
             <img class="headerImage" src="Images/PeerPay.png"/>
             <h4 class="subheading">Peer-to-Peer Payments</h4>
             <p>Enter your recipient's identityKey, the amount, and send your payment!</p>
 
             <h4 id="identityKey"></h4>
-            <button class="tokenButton" onclick="{getIdentityKey()}">View Your Identity Key</button>
-
-            <!--Get the user's identity key using the SDK-->
+            <button class="tokenButton" onclick="getIdentityKey()">View Your Identity Key</button>
+            
             <script>
-                const getIdentityKey = (async () => {
+                async function getIdentityKey() {
                     try {
-                        let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true }) 
-                        document.getElementById('identityKey').innerText = identityKey
+                        let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true });
+                        document.getElementById('identityKey').innerText = identityKey;
                     } catch (error) {
+                        console.error("Error fetching identity key:", error);
                     }
-                })
+                }
             </script>
 
-            <!--Example input form-->
+            <!-- Example input form -->
             <form>
-                <label for="recipient">Recipient</label><br>
-                <input type="text" id="recipient" name="recipient" placeholder="identity key or Signia verified identity (first last)" value=""><br>
+                <label for="recipient">Recipient Identity Key</label><br>
+                <input type="text" id="recipient" name="recipient" placeholder="Enter recipient identity key" value=""><br>
                 <label for="amount">Amount (satoshis)</label><br>
                 <input type="text" id="amount" name="amount" placeholder="100"><br><br>
             </form> 
 
-            <!--Handle submitting the payment-->
-            <button class="tokenButton" onclick="{handleSubmit()}">Send</button>
+            <!-- Handle submitting the payment -->
+            <button class="tokenButton" onclick="handleSubmit()">Send</button>
             <script>
-                const handleSubmit = ( async () => {
-                    document.getElementById("loader").style.display = "block"
+                async function handleSubmit() {
+                    document.getElementById("loader").style.display = "block";
                     try {
-                        let recipient = document.getElementById('recipient').value
-                        let amount = Number(document.getElementById('amount').value)
-                        if (!recipient || !amount) {
-                            showAlert('Please fill out the required fields!')
-                            document.getElementById("loader").style.display = "none"
-                            return
+                        let recipient = document.getElementById('recipient').value;
+                        let amount = Number(document.getElementById('amount').value);
+                        if (!recipient || amount <= 0) {
+                            showAlert('Please fill out the required fields!');
+                            document.getElementById("loader").style.display = "none";
+                            return;
                         }
 
-                        debugger
-                        if (recipient.length !== 66) {
-                            let results = await window.Signia.discoverByAttributes({ firstName: recipient.split(" ")[0], lastName: recipient.split(" ")[1] })
-                            if (!results || results.length === 0) {
-                                showAlert("No matching identity found! 😬")
-                            }
-
-                            recipient = results[0].subject
-                        }
-
-                        const result = await window.PaymentTokenator.sendPayment({ 
+                        await window.PeerPayClient.sendPayment({ 
                             recipient,
                             amount
-                        })
-                        document.getElementById("loader").style.display = "none"
-                        showAlert("Payment Sent! 🎉")
-                        setTimeout(() => { location.reload() }, 1500)
+                        });
+
+                        document.getElementById("loader").style.display = "none";
+                        showAlert("Payment Sent! 🎉");
+                        setTimeout(() => { location.reload() }, 1500);
                     } catch (error) {
-                        showAlert("Something went wrong! 😬")
-                        document.getElementById("loader").style.display = "none"
+                        console.error("Error sending payment:", error);
+                        showAlert("Something went wrong! 😬");
+                        document.getElementById("loader").style.display = "none";
                     }
-                } )
+                }
             </script>
 
             <div id="loader" class="loader"></div>
 
-            <!--Display new payments in a table-->
+            <!-- Display new payments in a table -->
             <h2 id="messageBoxStatus"></h2>
             <table id="myMessages">
                 <tbody id="tbody">
@@ -107,146 +117,90 @@
                 </tbody>
             </table>
 
-            <!--Check for incoming payments-->
+            <!-- Check for incoming payments -->
             <script>
-                // Hide the list and loading animation to start
-                let list = document.getElementById("myMessages")
-                document.getElementById("loader").style.display = "none"
-                list.style.display = "none"
+                let list = document.getElementById("myMessages");
+                document.getElementById("loader").style.display = "none";
+                list.style.display = "none";
 
-                let newMessages = []
-
-                // Show a custom toast alert
-                const showAlert = (message, duration = 4000) => {
-                    const toast = document.getElementById('toast')
-                    toast.querySelector('.toast-body').innerHTML = message
-                    toast.classList.add('visible')
-                    setTimeout(() => { toast.classList.remove('visible') }, duration)
+                function showAlert(message, duration = 4000) {
+                    const toast = document.getElementById('toast');
+                    toast.querySelector('.toast-body').innerHTML = message;
+                    toast.classList.add('visible');
+                    setTimeout(() => { toast.classList.remove('visible') }, duration);
                 }
 
-                const checkforNewMessages = async () => {
-                    document.getElementById("loader").style.display = "block"
-                    let payments = undefined
-                    try {
-                        payments = await window.PaymentTokenator.listIncomingPayments()
-                    } catch (error) {
-                        console.log(error)
+                async function checkforNewMessages() {
+                    if (!window.PeerPayClient) {
+                        console.error("PeerPayClient is not initialized!");
+                        return;
                     }
-                    document.getElementById("loader").style.display = "none"
-                    console.log(payments)
 
-                    // Example continuous checking for new messages (could be improved!)
-                    // while(!newMessages || newMessages.length === 0) {
-                    //     await new Promise(resolve => setTimeout(resolve, 4000))
-                    //     newMessages = await window.PaymentTokenator.listMessages({ messageBoxType: ['payment_inbox'], acknowledged: false})
-                    // }
+                    document.getElementById("loader").style.display = "block";
+                    let payments = [];
 
-                    // Update the messageBoxStatus if new messages are available
+                    try {
+                        console.log("Fetching payments...");
+                        payments = await window.PeerPayClient.listIncomingPayments();
+                        console.log("Payments retrieved:", payments);
+                    } catch (error) {
+                        console.error("Error fetching payments:", error);
+                    }
+
+                    document.getElementById("loader").style.display = "none";
+
                     if (!payments || payments.length === 0) {
-                        document.getElementById('messageBoxStatus').innerText = 'No new payments'
+                        document.getElementById('messageBoxStatus').innerText = 'No new payments';
                     } else {
-                        document.getElementById('messageBoxStatus').innerText = 'Incoming Payments'
-                        list.style.display = "block"
+                        document.getElementById('messageBoxStatus').innerText = 'Incoming Payments';
+                        list.style.display = "block";
+                        showAlert("New Payments");
 
-                        showAlert("New Payments")
+                        payments.forEach((payment) => {
+                            let tblBody = document.getElementById("tbody");
+                            const row = document.createElement("tr");
 
-                        // Allow multi-read
-                        if (payments.length > 1) {
-                            document.getElementById('acceptAllBtn').style.display = "block"
-                        }
-                        // Show the newest messages first
-                        payments = payments.reverse()
-                        window.incomingPayments = payments
-                        // Add each new payment message to the table
-                        payments.forEach((payment)=> {
-                            let tblBody = document.getElementById("tbody")
-                            const row = document.createElement("tr")
+                            // Sender
+                            const senderCell = document.createElement("td");
+                            senderCell.appendChild(document.createTextNode(payment.sender));
+                            row.appendChild(senderCell);
 
-                            // Sender column
-                            const senderCell = document.createElement("td")
-                            const sender = document.createTextNode(payment.sender)
-                            senderCell.appendChild(sender)
-                            row.appendChild(senderCell)
+                            // Date
+                            const dateCell = document.createElement("td");
+                            dateCell.appendChild(document.createTextNode(new Date(payment.created_at).toLocaleString()));
+                            row.appendChild(dateCell);
 
-                            // Format the timestamp
-                            var date = new Date(payment.created_at)
-                            var options = {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: 'numeric',
-                            second: 'numeric'
-                            }
-                            var formattedDate = date.toLocaleDateString('en-US', options)
-                            
-                            // Date column
-                            const dateCell = document.createElement("td")
-                            const dateTxt = document.createTextNode(formattedDate)
-                            dateCell.appendChild(dateTxt)
-                            row.appendChild(dateCell)
+                            // Amount
+                            const amountCell = document.createElement("td");
+                            amountCell.appendChild(document.createTextNode(payment.token.body.amount + ' sats'));
+                            row.appendChild(amountCell);
 
-                            // Amount column
-                            let amount = payment.amount
-                            if (!amount) {
-                                amount = payment.token.amount
-                            }
-                 
-                            const amountCell = document.createElement("td")
-                            const amountTxt = document.createTextNode(amount + ' sats')
-                            amountCell.appendChild(amountTxt)
-                            row.appendChild(amountCell)
-
-                            // Accept Payment Action Column
-                            const acceptBtn = document.createElement("BUTTON")
-                            acceptBtn.innerHTML = "Accept"
-                            acceptBtn.classList.add('acceptButton')
-                            // Setup the onClick handler for each payment message
+                            // Accept Button
+                            const acceptBtn = document.createElement("BUTTON");
+                            acceptBtn.innerHTML = "Accept";
+                            acceptBtn.classList.add('acceptButton');
                             acceptBtn.onclick = async () => {
-                                document.getElementById("loader").style.display = "block"
+                                document.getElementById("loader").style.display = "block";
                                 try {
-                                    debugger
-                                    const result = await window.PaymentTokenator.acceptPayment(payment)
-                                    document.getElementById("loader").style.display = "none"
-                                    const toast = document.getElementById('toast')
-                                    toast.querySelector('.toast-body').innerHTML = "Payment Received!"
-                                    toast.classList.add('visible')
+                                    await window.PeerPayClient.acceptPayment(payment);
+                                    document.getElementById("loader").style.display = "none";
+                                    showAlert("Payment Received!");
                                 } catch (error) {
-                                    document.getElementById("loader").style.display = "none"
-                                    showAlert(error)
+                                    document.getElementById("loader").style.display = "none";
+                                    showAlert(error);
                                 }
-                                // Refresh the page after 2 sec
-                                setTimeout(() => { location.reload() }, 1500)
-                            }
-                            const actionCell = document.createElement("td")
-                            actionCell.appendChild(acceptBtn)
-                            row.appendChild(actionCell)
-                            tblBody.appendChild(row)
-                        })
+                                setTimeout(() => { location.reload() }, 1500);
+                            };
+                            const actionCell = document.createElement("td");
+                            actionCell.appendChild(acceptBtn);
+                            row.appendChild(actionCell);
+                            tblBody.appendChild(row);
+                        });
                     }
                 }
-                // Check for new messages when the page loads
-                checkforNewMessages()
+
+                checkforNewMessages();
             </script>
-            <!--Support receiving multiple payments at once-->
-            <script>
-                const acceptAllPayments = ( async () => {
-                    document.getElementById("loader").style.display = "block"
-                    try {
-                        const result = await window.PaymentTokenator.readMessage({
-                            messageIds: window.incomingPayments.map(x => x.messageId)
-                        })
-                        document.getElementById("loader").style.display = "none"
-                        showAlert("Payments Received!")
-                    } catch (error) {
-                        document.getElementById("loader").style.display = "none"
-                        showAlert(error)
-                    }
-                    // Refresh the page after 2sec
-                    // setTimeout(() => { location.reload() }, 1500)
-                } )
-            </script>
-            <button style="display: none;" id='acceptAllBtn' class="acceptButton" onclick="{acceptAllPayments()}">Accept All</button>
         </div>
     </body>
 </html>
