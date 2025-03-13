@@ -2,43 +2,68 @@
 <html>
     <head>
         <!-- Import custom stylesheet -->
-        <link href="style.css" type="text/css" rel="stylesheet" />
-        <script src="signia.bundle.js"></script>
+        <link href="style.css" type="text/css" rel="stylesheet" /> 
     </head>
     <body class="bg-blur">
+        <!-- Must import Babbage tools here since they need to manipulate the DOM for popup window -->
+        <script src="./BabbageSDK.js"></script>
+        <script src="signia.bundle.js"></script>
         <script type="module">
-            import PeerPayClient from '../../peerpay-client/dist/src/PeerPayClient.js';
+            import * as bsvsdk from "https://cdn.jsdelivr.net/npm/@bsv/sdk/dist/sdk.bundle.js";
+            window.bsv = bsvsdk; // Ensure it is properly attached
+            console.log("@bsv/sdk loaded and attached to window.bsv:", window.bsv);
+        </script>
+        
+        <script>
+            console.log("bsvsdk Loaded:", window.bsv); // Debug log to confirm if it's attached
+        </script>
+     
+        <script src="../../peerpay-client/dist/PeerPayClient.bundle.js"></script>
 
+        <script>
             async function initializePeerPay() {
-                try {
-                    // Ensure bsvsdk is available
-                    if (!window.bsvsdk) {
-                        console.error("bsvsdk is not loaded. Ensure @bsv/sdk is included in the project.");
-                        return;
-                    }
+    console.log("⏳ Initializing PeerPayClient...");
 
-                    const walletClient = new window.bsv.WalletClient();
+    // Wait for `bsvsdk` to load
+    let retries = 10;
+    let interval = setInterval(() => {
+        if (window.bsv) {  // Ensure we are checking the correct reference
+            clearInterval(interval);
 
-                    window.PeerPayClient = new PeerPayClient({
-                        messageBoxHost: 'https://messagebox.babbage.systems',
-                        walletClient
-                    });
+            console.log("bsvsdk Loaded:", window.bsv);
 
-                    console.log("PeerPayClient Initialized:", window.PeerPayClient);
+            try {
+                // Initialize wallet client
+                const walletClient = new window.bsv.WalletClient();
 
-                    // Ensure it's fully initialized before calling checkforNewMessages
-                    setTimeout(() => {
-                        if (window.PeerPayClient) {
-                            checkforNewMessages();
-                        } else {
-                            console.error("PeerPayClient is still undefined after delay!");
-                        }
-                    }, 2000); // 2-second delay to ensure initialization
+                // Initialize PeerPayClient
+                window.PeerPayClient = new window.PeerPayClient({
+                    messageBoxHost: 'https://messagebox.babbage.systems',
+                    walletClient
+                });
 
-                } catch (error) {
-                    console.error("Failed to initialize PeerPayClient:", error);
+                if (!window.PeerPayClient) {
+                    throw new Error("PeerPayClient failed to initialize!");
                 }
+
+                console.log("PeerPayClient Initialized:", window.PeerPayClient);
+                checkforNewMessages();
+
+            } catch (error) {
+                console.error("PeerPayClient Initialization Error:", error);
             }
+
+        } else if (--retries === 0) {
+            clearInterval(interval);
+            console.error("bsvsdk still not found after retries. Ensure it's loaded.");
+        }
+    }, 500);
+}
+
+
+
+            window.Signia = new window.Signia.Signia(undefined, 'https://staging-signicert.babbage.systems');
+            window.Signia.config.confederacyHost = 'https://staging-confederacy.babbage.systems';
 
             initializePeerPay();
         </script>
@@ -58,21 +83,23 @@
             <h4 id="identityKey"></h4>
             <button class="tokenButton" onclick="getIdentityKey()">View Your Identity Key</button>
 
+            <!-- Get the user's identity key using the SDK -->
             <script>
                 async function getIdentityKey() {
                     try {
-                        let identityKey = await window.PeerPayClient.walletClient.getPublicKey({ identityKey: true });
+                        let identityKey = await window.PeerPayClient.peerPayWalletClient.getPublicKey({ identityKey: true });
+                        console.log("🔑 Identity Key:", identityKey.publicKey);
                         document.getElementById('identityKey').innerText = identityKey.publicKey;
                     } catch (error) {
-                        console.error("Error fetching identity key:", error);
+                        console.error("❌ Error fetching identity key:", error);
                     }
                 }
             </script>
 
             <!-- Example input form -->
             <form>
-                <label for="recipient">Recipient Identity Key</label><br>
-                <input type="text" id="recipient" name="recipient" placeholder="Enter recipient identity key" value=""><br>
+                <label for="recipient">Recipient</label><br>
+                <input type="text" id="recipient" name="recipient" placeholder="identity key or Signia verified identity (first last)" value=""><br>
                 <label for="amount">Amount (satoshis)</label><br>
                 <input type="text" id="amount" name="amount" placeholder="100"><br><br>
             </form> 
@@ -91,16 +118,30 @@
                             return;
                         }
 
+                        if (recipient.length !== 66) {
+                            let results = await window.Signia.discoverByAttributes({ 
+                                firstName: recipient.split(" ")[0], 
+                                lastName: recipient.split(" ")[1] 
+                            });
+                            if (!results || results.length === 0) {
+                                showAlert("No matching identity found! 😬");
+                            }
+
+                            recipient = results[0].subject;
+                        }
+
                         await window.PeerPayClient.sendPayment({ 
                             recipient,
                             amount
                         });
 
+                        console.log("✅ Payment Sent:", { recipient, amount });
+
                         document.getElementById("loader").style.display = "none";
                         showAlert("Payment Sent! 🎉");
                         setTimeout(() => { location.reload() }, 1500);
                     } catch (error) {
-                        console.error("Error sending payment:", error);
+                        console.error("❌ Payment Error:", error);
                         showAlert("Something went wrong! 😬");
                         document.getElementById("loader").style.display = "none";
                     }
@@ -128,28 +169,16 @@
                 document.getElementById("loader").style.display = "none";
                 list.style.display = "none";
 
-                function showAlert(message, duration = 4000) {
-                    const toast = document.getElementById('toast');
-                    toast.querySelector('.toast-body').innerHTML = message;
-                    toast.classList.add('visible');
-                    setTimeout(() => { toast.classList.remove('visible') }, duration);
-                }
-
                 async function checkforNewMessages() {
-                    if (!window.PeerPayClient) {
-                        console.error("PeerPayClient is not initialized!");
-                        return;
-                    }
-
+                    console.log("⏳ Checking for new messages...");
                     document.getElementById("loader").style.display = "block";
                     let payments = [];
 
                     try {
-                        console.log("Fetching payments...");
                         payments = await window.PeerPayClient.listIncomingPayments();
-                        console.log("Payments retrieved:", payments);
+                        console.log("📥 Payments Retrieved:", payments);
                     } catch (error) {
-                        console.error("Error fetching payments:", error);
+                        console.error("❌ Error fetching payments:", error);
                     }
 
                     document.getElementById("loader").style.display = "none";
@@ -191,6 +220,7 @@
                                     document.getElementById("loader").style.display = "none";
                                     showAlert("Payment Received!");
                                 } catch (error) {
+                                    console.error("❌ Accept Payment Error:", error);
                                     document.getElementById("loader").style.display = "none";
                                     showAlert(error);
                                 }
@@ -203,8 +233,6 @@
                         });
                     }
                 }
-
-                checkforNewMessages();
             </script>
         </div>
     </body>
