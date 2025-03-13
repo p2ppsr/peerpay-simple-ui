@@ -6,7 +6,6 @@
     </head>
     <body class="bg-blur">
         <!-- Must import Babbage tools here since they need to manipulate the DOM for popup window -->
-        <script src="./BabbageSDK.js"></script>
         <script src="signia.bundle.js"></script>
         <script type="module">
             import * as bsvsdk from "https://cdn.jsdelivr.net/npm/@bsv/sdk/dist/sdk.bundle.js";
@@ -22,43 +21,43 @@
 
         <script>
             async function initializePeerPay() {
-    console.log("⏳ Initializing PeerPayClient...");
+                console.log("⏳ Initializing PeerPayClient...");
 
-    // Wait for `bsvsdk` to load
-    let retries = 10;
-    let interval = setInterval(() => {
-        if (window.bsv) {  // Ensure we are checking the correct reference
-            clearInterval(interval);
+                // Wait for `bsvsdk` to load
+                let retries = 10;
+                let interval = setInterval(() => {
+                    if (window.bsv) {  // Ensure we are checking the correct reference
+                        clearInterval(interval);
 
-            console.log("bsvsdk Loaded:", window.bsv);
+                        console.log("bsvsdk Loaded:", window.bsv);
 
-            try {
-                // Initialize wallet client
-                const walletClient = new window.bsv.WalletClient();
+                        try {
+                            // Initialize wallet client
+                            const walletClient = new window.bsv.WalletClient();
 
-                // Initialize PeerPayClient
-                window.PeerPayClient = new window.PeerPayClient({
-                    messageBoxHost: 'https://messagebox.babbage.systems',
-                    walletClient
-                });
+                            // Initialize PeerPayClient
+                            window.PeerPayClient = new window.PeerPayClient({
+                                messageBoxHost: 'https://messagebox.babbage.systems',
+                                walletClient
+                            });
 
-                if (!window.PeerPayClient) {
-                    throw new Error("PeerPayClient failed to initialize!");
-                }
+                            if (!window.PeerPayClient) {
+                                throw new Error("PeerPayClient failed to initialize!");
+                            }
 
-                console.log("PeerPayClient Initialized:", window.PeerPayClient);
-                checkforNewMessages();
+                            console.log("PeerPayClient Initialized:", window.PeerPayClient);
+                            checkforNewMessages();
 
-            } catch (error) {
-                console.error("PeerPayClient Initialization Error:", error);
+                        } catch (error) {
+                            console.error("PeerPayClient Initialization Error:", error);
+                        }
+
+                    } else if (--retries === 0) {
+                        clearInterval(interval);
+                        console.error("bsvsdk still not found after retries. Ensure it's loaded.");
+                    }
+                }, 500);
             }
-
-        } else if (--retries === 0) {
-            clearInterval(interval);
-            console.error("bsvsdk still not found after retries. Ensure it's loaded.");
-        }
-    }, 500);
-}
 
 
 
