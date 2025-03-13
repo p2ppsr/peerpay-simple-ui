@@ -5,67 +5,64 @@
         <link href="style.css" type="text/css" rel="stylesheet" /> 
     </head>
     <body class="bg-blur">
-        <!-- Must import Babbage tools here since they need to manipulate the DOM for popup window -->
+        <!-- Must import bsv/sdk tools here since they need to manipulate the DOM for popup window -->
         <script src="signia.bundle.js"></script>
-        <script type="module">
-            import * as bsvsdk from "https://cdn.jsdelivr.net/npm/@bsv/sdk/dist/sdk.bundle.js";
-            window.bsv = bsvsdk; // Ensure it is properly attached
-            console.log("@bsv/sdk loaded and attached to window.bsv:", window.bsv);
+        <script src="/peerpay-simple-ui/node_modules/@bsv/sdk/dist/umd/bundle.js"></script>
+        <script>
+            console.log("✅ @bsv/sdk script loaded:", window.bsv);
         </script>
         
-        <script>
-            console.log("bsvsdk Loaded:", window.bsv); // Debug log to confirm if it's attached
-        </script>
-     
         <script src="../../peerpay-client/dist/PeerPayClient.bundle.js"></script>
 
         <script>
+            // Ensure PeerPayClient is correctly assigned
+            if (window.PeerPayClient?.default) {
+                window.PeerPayClient = window.PeerPayClient.default; // Attach default export as constructor
+            }
+            console.log("✅ PeerPayClient Loaded:", window.PeerPayClient);
+
             async function initializePeerPay() {
                 console.log("⏳ Initializing PeerPayClient...");
 
-                // Wait for `bsvsdk` to load
                 let retries = 10;
                 let interval = setInterval(() => {
-                    if (window.bsv) {  // Ensure we are checking the correct reference
+                    if (window.bsv) {
                         clearInterval(interval);
 
-                        console.log("bsvsdk Loaded:", window.bsv);
+                        console.log("✅ @bsv/sdk Loaded:", window.bsv);
 
                         try {
-                            // Initialize wallet client
                             const walletClient = new window.bsv.WalletClient();
-
-                            // Initialize PeerPayClient
-                            window.PeerPayClient = new window.PeerPayClient({
+                            window.PeerPayClientInstance = new window.PeerPayClient({
                                 messageBoxHost: 'https://messagebox.babbage.systems',
                                 walletClient
                             });
 
-                            if (!window.PeerPayClient) {
-                                throw new Error("PeerPayClient failed to initialize!");
+                            if (!window.PeerPayClientInstance) {
+                                throw new Error("🚨 PeerPayClient failed to initialize!");
                             }
 
-                            console.log("PeerPayClient Initialized:", window.PeerPayClient);
+                            console.log("✅ PeerPayClient Initialized:", window.PeerPayClientInstance);
                             checkforNewMessages();
 
                         } catch (error) {
-                            console.error("PeerPayClient Initialization Error:", error);
+                            console.error("❌ PeerPayClient Initialization Error:", error);
                         }
-
                     } else if (--retries === 0) {
                         clearInterval(interval);
-                        console.error("bsvsdk still not found after retries. Ensure it's loaded.");
+                        console.error("❌ @bsv/sdk still not found after retries. Ensure it's loaded.");
                     }
                 }, 500);
             }
 
+            // 🌟 Ensure the SDK is available before initializing
+            initializePeerPay();
 
-
+            // Initialize Signia
             window.Signia = new window.Signia.Signia(undefined, 'https://staging-signicert.babbage.systems');
             window.Signia.config.confederacyHost = 'https://staging-confederacy.babbage.systems';
-
-            initializePeerPay();
         </script>
+
 
         <!-- Toast Notification -->
         <div class="toast" id="toast" onclick="{
@@ -86,7 +83,7 @@
             <script>
                 async function getIdentityKey() {
                     try {
-                        let identityKey = await window.PeerPayClient.peerPayWalletClient.getPublicKey({ identityKey: true });
+                        let identityKey = await window.PeerPayClientInstance.peerPayWalletClient.getPublicKey({ identityKey: true });
                         console.log("🔑 Identity Key:", identityKey.publicKey);
                         document.getElementById('identityKey').innerText = identityKey.publicKey;
                     } catch (error) {
@@ -117,19 +114,7 @@
                             return;
                         }
 
-                        if (recipient.length !== 66) {
-                            let results = await window.Signia.discoverByAttributes({ 
-                                firstName: recipient.split(" ")[0], 
-                                lastName: recipient.split(" ")[1] 
-                            });
-                            if (!results || results.length === 0) {
-                                showAlert("No matching identity found! 😬");
-                            }
-
-                            recipient = results[0].subject;
-                        }
-
-                        await window.PeerPayClient.sendPayment({ 
+                        await window.PeerPayClientInstance.sendPayment({ 
                             recipient,
                             amount
                         });
@@ -174,63 +159,13 @@
                     let payments = [];
 
                     try {
-                        payments = await window.PeerPayClient.listIncomingPayments();
+                        payments = await window.PeerPayClientInstance.listIncomingPayments();
                         console.log("📥 Payments Retrieved:", payments);
                     } catch (error) {
                         console.error("❌ Error fetching payments:", error);
                     }
 
                     document.getElementById("loader").style.display = "none";
-
-                    if (!payments || payments.length === 0) {
-                        document.getElementById('messageBoxStatus').innerText = 'No new payments';
-                    } else {
-                        document.getElementById('messageBoxStatus').innerText = 'Incoming Payments';
-                        list.style.display = "block";
-                        showAlert("New Payments");
-
-                        payments.forEach((payment) => {
-                            let tblBody = document.getElementById("tbody");
-                            const row = document.createElement("tr");
-
-                            // Sender
-                            const senderCell = document.createElement("td");
-                            senderCell.appendChild(document.createTextNode(payment.sender));
-                            row.appendChild(senderCell);
-
-                            // Date
-                            const dateCell = document.createElement("td");
-                            dateCell.appendChild(document.createTextNode(new Date(payment.created_at).toLocaleString()));
-                            row.appendChild(dateCell);
-
-                            // Amount
-                            const amountCell = document.createElement("td");
-                            amountCell.appendChild(document.createTextNode(payment.token.body.amount + ' sats'));
-                            row.appendChild(amountCell);
-
-                            // Accept Button
-                            const acceptBtn = document.createElement("BUTTON");
-                            acceptBtn.innerHTML = "Accept";
-                            acceptBtn.classList.add('acceptButton');
-                            acceptBtn.onclick = async () => {
-                                document.getElementById("loader").style.display = "block";
-                                try {
-                                    await window.PeerPayClient.acceptPayment(payment);
-                                    document.getElementById("loader").style.display = "none";
-                                    showAlert("Payment Received!");
-                                } catch (error) {
-                                    console.error("❌ Accept Payment Error:", error);
-                                    document.getElementById("loader").style.display = "none";
-                                    showAlert(error);
-                                }
-                                setTimeout(() => { location.reload() }, 1500);
-                            };
-                            const actionCell = document.createElement("td");
-                            actionCell.appendChild(acceptBtn);
-                            row.appendChild(actionCell);
-                            tblBody.appendChild(row);
-                        });
-                    }
                 }
             </script>
         </div>
