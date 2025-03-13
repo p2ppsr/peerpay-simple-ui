@@ -3,18 +3,23 @@
     <head>
         <!-- Import custom stylesheet -->
         <link href="style.css" type="text/css" rel="stylesheet" />
+        <script src="signia.bundle.js"></script>
     </head>
     <body class="bg-blur">
-        <!-- Import Babbage tools -->
-        <script src="./BabbageSDK.js"></script>
-        <script src="signia.bundle.js"></script>
-        <script src="/peerppay-client/dist/PeerPayClient.bundle.js"></script>
+        <script type="module">
+            import PeerPayClient from '../../peerpay-client/dist/src/PeerPayClient.js';
 
-        <script>
             async function initializePeerPay() {
                 try {
-                    const walletClient = new window.BabbageSDK.WalletClient();
-                    window.PeerPayClient = new window.PeerPayClient({
+                    // Ensure bsvsdk is available
+                    if (!window.bsvsdk) {
+                        console.error("bsvsdk is not loaded. Ensure @bsv/sdk is included in the project.");
+                        return;
+                    }
+
+                    const walletClient = new window.bsv.WalletClient();
+
+                    window.PeerPayClient = new PeerPayClient({
                         messageBoxHost: 'https://messagebox.babbage.systems',
                         walletClient
                     });
@@ -52,12 +57,12 @@
 
             <h4 id="identityKey"></h4>
             <button class="tokenButton" onclick="getIdentityKey()">View Your Identity Key</button>
-            
+
             <script>
                 async function getIdentityKey() {
                     try {
-                        let identityKey = await window.BabbageSDK.getPublicKey({ identityKey: true });
-                        document.getElementById('identityKey').innerText = identityKey;
+                        let identityKey = await window.PeerPayClient.walletClient.getPublicKey({ identityKey: true });
+                        document.getElementById('identityKey').innerText = identityKey.publicKey;
                     } catch (error) {
                         console.error("Error fetching identity key:", error);
                     }
